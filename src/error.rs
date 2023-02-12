@@ -1,5 +1,6 @@
 pub enum Error {
     IO(std::io::Error),
+    TomlParse,
 }
 
 impl std::error::Error for Error {}

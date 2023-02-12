@@ -1,9 +1,9 @@
-use std::{env, fs, path::PathBuf};
+use std::{fs, io, path::PathBuf};
+
+use resolve_path::PathResolveExt;
 
 use crate::error::Error;
 
-const XDG_VAR: &str = "XDG_CONFIG";
-const DEFAULT_CONFIG_DIR: &str = "~/.config";
 const CONFIG_FILE: &str = "jot/conf.toml";
 const DEFAULT_ROOT: &str = "~/notes";
 const DEFAULT_SUBDIR: &str = "atoms";
@@ -18,55 +18,63 @@ pub struct Config {
     subdir: &'static str,
 }
 
-// TODO: Use the dirs crate to resolve the paths that start with ~, and also replace some of the
-// logic below
-
-// TODO: Load logic
-// TOML file must be present, but what to do if its not there?
-// Maybe force to run --init before starting any notes, and init creates the config file/folder
-// Or, running it without a config just uses a default place for the notes
-// I think the latter is best, then can build init logic in afterwards
-
 impl Config {
     /// Build a new config from an optional path that will fall back to default if None.
     pub fn try_new(path: Option<PathBuf>) -> Result<Self, Error> {
         match path {
-            Some(path) => Self::try_from_path(&path),
+            Some(path) => Self::try_from_path(path),
             None => Self::try_default(),
         }
     }
 
     /// Attempt to build a Config from the provided path.
-    pub fn try_from_path(path: &PathBuf) -> Result<Self, Error> {
-        let toml_str = fs::read_to_string(path).map_err(|err| Error::IO(err))?;
+    pub fn try_from_path(path: PathBuf) -> Result<Self, Error> {
+        let toml = fs::read_to_string(path.resolve())
+            .map_err(|err| Error::IO(err))?
+            .parse::<toml::Table>()
+            .map_err(|_| Error::TomlParse)?;
 
-        // TODO: Attempt to read the TOML
-        // Just parse by hand, don't introduce SerDe dependency for this
+        let editor = match toml.get("editor") {
+            Some(toml::Value::String(s)) => Some(s.clone()),
+            Some(_) => return Err(Error::TomlParse),
+            None => None,
+        };
 
-        todo!()
-        //Ok(config)
+        let root = match toml.get("root") {
+            Some(toml::Value::String(s)) => PathBuf::from(s),
+            Some(_) => return Err(Error::TomlParse),
+            None => PathBuf::from(DEFAULT_ROOT),
+        };
+        let root = root
+            .try_resolve()
+            .map_err(|err| Error::IO(err))?
+            .to_path_buf();
+
+        // TODO: subdir comes from the args, not the settings file
+        Ok(Self {
+            editor,
+            root,
+            subdir: DEFAULT_SUBDIR,
+        })
     }
 
-    /// Attempt to build a config using the default config location. This first tests for
-    /// XDG_CONFIG, then attempts ~/.config, accessing the jot/conf.toml file in both cases.
+    /// Attempt to build a config using the default config location.
+    /// Will choose the system specific location for the config file based on XDG conventions.
     /// If the file errors for not being present, this is OK - we build a default config
-    /// Any other error is passed back to the caller
-    /// TODO: Check AppData/local for windows
+    /// Any other error is passed back to the caller.
     pub fn try_default() -> Result<Self, Error> {
-        let config_base = env::var(XDG_VAR);
-        let config_base = config_base
-            .as_ref()
-            .map(|s| s.as_str())
-            .unwrap_or(DEFAULT_CONFIG_DIR);
-        let mut config_path = PathBuf::from(config_base);
+        let mut config_path = dirs::config_dir().ok_or(Error::IO(io::Error::new(
+            io::ErrorKind::NotFound,
+            "Config dir could not be resolved",
+        )))?;
         config_path.push(CONFIG_FILE);
 
-        match Self::try_from_path(&config_path) {
+        match Self::try_from_path(config_path) {
             Err(Error::IO(err)) => {
                 // A not found error is ok - build a default
                 // Otherwise retain the error
                 if err.kind() == std::io::ErrorKind::NotFound {
-                    Ok(Self::default_config())
+                    Self::default_config()
                 } else {
                     Err(Error::IO(err))
                 }
@@ -82,13 +90,16 @@ impl Config {
     }
 
     /// Default config. Not implementing Default as this should not be called outside this module.
-    fn default_config() -> Self {
-        println!("---");
-        println!("{:?}", fs::canonicalize(DEFAULT_ROOT));
-        Self {
+    fn default_config() -> Result<Self, Error> {
+        let root = PathBuf::from(DEFAULT_ROOT)
+            .try_resolve()
+            .map_err(|err| Error::IO(err))?
+            .to_path_buf();
+
+        Ok(Self {
             editor: None,
-            root: PathBuf::from(DEFAULT_ROOT),
+            root,
             subdir: DEFAULT_SUBDIR,
-        }
+        })
     }
 }

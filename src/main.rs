@@ -25,7 +25,7 @@ fn main() -> Result<(), Error> {
     // Get the date, including the year and month for building the path and for the front matter
     let date = Local::now();
 
-    // TODO: Move to a new module for text processing
+    // TODO: Create a new module for text processing
     // TODO: If this is to support configured front matter strings (say in a file in the config
     // dir) this should use replace or a dynamic template engine (e.g. strfmt)
     // Start building the text with the front matter
@@ -35,7 +35,11 @@ fn main() -> Result<(), Error> {
     // onto the text
     let body_text = args.text.unwrap_or_default();
     let body_text = body_text.trim();
-    let heading_leader = if body_text.starts_with("#") { "" } else { "# " };
+    let heading_leader = if body_text.starts_with("#") || body_text.len() == 0 {
+        ""
+    } else {
+        "# "
+    };
     text.push_str(heading_leader);
     text.push_str(body_text);
 
@@ -44,24 +48,24 @@ fn main() -> Result<(), Error> {
 
     // Ensure all the folders are created
     note_path.push(date.format("%Y/%m").to_string());
-    //fs::create_dir_all(&note_path).map_err(|err| Error::IO(err))?;
+    fs::create_dir_all(&note_path).map_err(|err| Error::IO(err))?;
 
     // Now write out the file
     // TODO: Is this the best date scheme for the file?
     let filename = format!("{}.md", date.format("%Y%m%d_%H%M%S"));
     note_path.push(filename);
-    //fs::write(&note_path, text).map_err(|err| Error::IO(err))?;
+    fs::write(&note_path, text).map_err(|err| Error::IO(err))?;
 
     // TODO: This should consider falling back to the default system opener
     if !args.no_edit {
         match config.editor.or(env::var("EDITOR").ok()) {
             Some(editor) => {
-                //Command::new(editor)
-                //    .arg(&note_path)
-                //    .spawn()
-                //    .map_err(|err| Error::IO(err))?
-                //    .wait()
-                //    .map_err(|err| Error::IO(err))?;
+                Command::new(editor)
+                    .arg(&note_path)
+                    .spawn()
+                    .map_err(|err| Error::IO(err))?
+                    .wait()
+                    .map_err(|err| Error::IO(err))?;
             }
             None => {
                 eprintln!("{}", note_path.to_string_lossy());
@@ -69,19 +73,6 @@ fn main() -> Result<(), Error> {
             }
         }
     }
-
-    // Open by itself
-    // TODO: This is not working - competing for the shell
-    // I think the process finishes first, but should check differently
-    //Command::new(editor).spawn();
-    // TODO: This seems to be working
-    //Command::new(editor).spawn().unwrap().wait().unwrap();
-
-    // Open in a shell
-    // TODO: Also competing for the screen
-    //Command::new("/bin/bash").arg("-c").arg(editor).spawn();
-
-    //println!("After the spawn");
 
     Ok(())
 }

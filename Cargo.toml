@@ -9,4 +9,5 @@ edition = "2021"
 chrono = "0.4.23"
 clap = { version = "4.1.4", features = ["derive"] }
 dirs = "4.0.0"
+resolve-path = "0.1.0"
 toml = "0.7.2"
