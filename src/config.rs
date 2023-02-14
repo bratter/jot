@@ -66,7 +66,6 @@ impl Config {
             .map_err(|err| Error::IO(err))?
             .to_path_buf();
 
-        // TODO: subdir comes from the args, not the settings file
         Ok(Self {
             editor,
             jump,
@@ -102,7 +101,7 @@ impl Config {
 
     pub fn base_dir(&self) -> PathBuf {
         let mut path = self.root.clone();
-        path.push(self.subdir.clone());
+        path.push(&self.subdir);
         path
     }
 
