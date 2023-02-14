@@ -9,11 +9,15 @@ pub struct Args {
     /// Initial text to capture in the note.
     pub text: Option<String>,
 
-    /// Jot will open $EDITOR unless this flag is set
+    /// Put the jot in an alternative subdirectory.
     #[arg(short, long)]
+    pub subdir: Option<String>,
+
+    /// Jot will open $EDITOR unless this flag is set.
+    #[arg(short = 'e', long = "no-edit")]
     pub no_edit: bool,
 
-    /// Use the config file at the specified path instead of the default
+    /// Use the config file at the specified path instead of the default.
     #[arg(long)]
     pub config: Option<PathBuf>,
 }
