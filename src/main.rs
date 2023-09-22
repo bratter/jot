@@ -22,8 +22,9 @@ fn main() -> Result<(), Error> {
     let config = Config::try_new(&args)?;
 
     // Abort early if attempting to create an empty note without editing
-    if args.no_edit && args.text.is_none() {
-        println!("No edit was set and no text was provided. Aborting.");
+    // when force is not also set
+    if args.no_edit && !args.force && args.text.is_none() {
+        eprintln!("No edit was set and no text was provided. Aborting.");
         return Ok(());
     }
 
@@ -47,6 +48,7 @@ fn main() -> Result<(), Error> {
     };
     text.push_str(heading_leader);
     text.push_str(body_text);
+    text.push('\n');
 
     // For the location to save, start with the base notes folder to add to
     let mut note_path = config.base_dir();
@@ -57,20 +59,22 @@ fn main() -> Result<(), Error> {
 
     // Now write out the file
     let filename = format!("{}.md", date.format("%Y%m%d_%H%M%S"));
-    note_path.push(filename);
+    note_path.push(&filename);
     fs::write(&note_path, &text).map_err(|err| Error::IO(err))?;
 
     // Editing behavior:
     // - Require an editor to be identified in config (first) or path
     // - File is created whether editor can be opened or not
     // - Attempt to open the file for editing as long as no-edit is not set
-    if !args.no_edit {
+    // - Otherwise print the full path of the created file
+    if args.no_edit {
+        println!("{}", note_path.to_string_lossy());
+    } else {
         let mut cmd = Command::new(config.editor);
         cmd.arg(&note_path);
 
         if config.jump {
-            let line_count = text.lines().count();
-            cmd.arg(format!("+{line_count}"));
+            cmd.arg(format!("+"));
         }
 
         cmd.spawn()
