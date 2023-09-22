@@ -99,6 +99,7 @@ impl Config {
         }
     }
 
+    // TODO: This could just be self.root.join("")
     pub fn base_dir(&self) -> PathBuf {
         let mut path = self.root.clone();
         path.push(&self.subdir);
