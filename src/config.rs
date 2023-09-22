@@ -79,10 +79,10 @@ impl Config {
     /// If the file errors for not being present, this is OK - we build a default config
     /// Any other error is passed back to the caller.
     pub fn try_default(subdir: &Option<String>) -> Result<Self, Error> {
-        let mut config_path = dirs::config_dir().ok_or(Error::IO(io::Error::new(
+        let mut config_path = dirs::config_dir().ok_or(io::Error::new(
             io::ErrorKind::NotFound,
             "Config dir could not be resolved",
-        )))?;
+        ))?;
         config_path.push(CONFIG_FILE);
 
         match Self::try_from_path(&config_path, subdir) {

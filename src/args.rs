@@ -34,18 +34,17 @@ pub enum Subcommand {
     /// Render a note at the given path as HTML.
     ///
     /// Outputs to stdout unless the -o option is passed
-    /// TODO: File behavior - which to pick? Probably just cwd is the best, maybe add a flag for
-    /// the notes dir, but the main one or the atoms?
     Html(HtmlCmd),
 }
 
 /// Command to render a note as HTML from the give path.
 #[derive(Debug, ClapArgs)]
 pub struct HtmlCmd {
-    /// Path to the file to convert.
+    /// Path to the file to convert. The file must have a .md extension.
     pub input: PathBuf,
 
-    /// Output to a file at the given path, stdout otherwise.
+    /// Output to a file at the given path, stdout otherwise. The folder must exist, but the file
+    /// must not for this to succeed.
     #[arg(short, long)]
     pub output: Option<PathBuf>,
 }
