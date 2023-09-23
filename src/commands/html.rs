@@ -1,17 +1,19 @@
 use std::{fs, io};
 
+use anyhow::{bail, Result};
 use pulldown_cmark::{html, Parser};
 
-use crate::{args::HtmlCmd, error::Error};
+use crate::args::HtmlCmd;
 
 /// Converts Markdown from the input argument to HTML and outputs on stdout by default, or to the
 /// file provided using the output argument. To avoid doubt, this will only process files with a
 /// `.md` extension. The destination directory must exist.
-pub fn html(args: &HtmlCmd) -> Result<(), Error> {
+pub fn html(args: &HtmlCmd) -> Result<()> {
     // Find the file to render
     let input = args.input.canonicalize()?;
-    if input.extension().ok_or(Error::NotMarkdownFile)? != "md" {
-        return Err(Error::NotMarkdownFile);
+    match input.extension() {
+        Some(ext) if ext == "md" => {}
+        _ => bail!("The file selected is not a markdown file"),
     }
 
     // Dyanmically dispatch on the type of writer

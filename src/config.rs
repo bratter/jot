@@ -1,8 +1,9 @@
 use std::{env, fs, io, path::PathBuf};
 
+use anyhow::{bail, Result};
 use resolve_path::PathResolveExt;
 
-use crate::{args::Args, error::Error};
+use crate::args::Args;
 
 const CONFIG_FILE: &str = "jot/conf.toml";
 const DEFAULT_ROOT: &str = "~/notes";
@@ -25,7 +26,7 @@ pub struct Config {
 
 impl Config {
     /// Build a new config from an optional path that will fall back to default if None.
-    pub fn try_new(args: &Args) -> Result<Self, Error> {
+    pub fn try_new(args: &Args) -> Result<Self> {
         let path = &args.config;
 
         match path {
@@ -35,36 +36,30 @@ impl Config {
     }
 
     /// Attempt to build a Config from the provided path.
-    pub fn try_from_path(path: &PathBuf, subdir: &Option<String>) -> Result<Self, Error> {
-        let toml = fs::read_to_string(path.resolve())
-            .map_err(|err| Error::IO(err))?
-            .parse::<toml::Table>()
-            .map_err(|_| Error::TomlParse)?;
+    pub fn try_from_path(path: &PathBuf, subdir: &Option<String>) -> Result<Self> {
+        let toml = fs::read_to_string(path.resolve())?.parse::<toml::Table>()?;
 
         // First, attempt to find the editor in the config
         // If it's not present, grab the EDITOR env var
         // Return an error if not available
         let editor = match toml.get("editor") {
             Some(toml::Value::String(s)) => s.clone(),
-            Some(_) => return Err(Error::TomlParse),
-            None => env::var("EDITOR").map_err(|_| Error::EditorNotFound)?,
+            Some(_) => bail!("Could not parse TOML"),
+            None => env::var("EDITOR")?,
         };
 
         let jump = match toml.get("jump") {
             Some(toml::Value::Boolean(b)) => *b,
-            Some(_) => return Err(Error::TomlParse),
+            Some(_) => bail!("Could not parse TOML"),
             None => false,
         };
 
         let root = match toml.get("root") {
             Some(toml::Value::String(s)) => PathBuf::from(s),
-            Some(_) => return Err(Error::TomlParse),
+            Some(_) => bail!("Could not parse TOML"),
             None => PathBuf::from(DEFAULT_ROOT),
         };
-        let root = root
-            .try_resolve()
-            .map_err(|err| Error::IO(err))?
-            .to_path_buf();
+        let root = root.try_resolve()?.to_path_buf();
 
         Ok(Self {
             editor,
@@ -78,41 +73,30 @@ impl Config {
     /// Will choose the system specific location for the config file based on XDG conventions.
     /// If the file errors for not being present, this is OK - we build a default config
     /// Any other error is passed back to the caller.
-    pub fn try_default(subdir: &Option<String>) -> Result<Self, Error> {
-        let mut config_path = dirs::config_dir().ok_or(io::Error::new(
-            io::ErrorKind::NotFound,
-            "Config dir could not be resolved",
-        ))?;
-        config_path.push(CONFIG_FILE);
+    pub fn try_default(subdir: &Option<String>) -> Result<Self> {
+        let config_path = dirs::config_dir()
+            .ok_or(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Config dir could not be resolved",
+            ))?
+            .join(CONFIG_FILE)
+            .canonicalize();
 
-        match Self::try_from_path(&config_path, subdir) {
-            Err(Error::IO(err)) => {
-                // A not found error is ok - build a default
-                // Otherwise retain the error
-                if err.kind() == std::io::ErrorKind::NotFound {
-                    Self::default_config()
-                } else {
-                    Err(Error::IO(err))
-                }
-            }
-            res @ _ => res,
+        match config_path {
+            Ok(config_path) => Self::try_from_path(&config_path, subdir),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => Self::default_config(),
+            Err(err) => return Err(err.into()),
         }
     }
 
-    // TODO: This could just be self.root.join("")
     pub fn base_dir(&self) -> PathBuf {
-        let mut path = self.root.clone();
-        path.push(&self.subdir);
-        path
+        self.root.join(&self.subdir)
     }
 
     /// Default config. Not implementing Default as this should not be called outside this module.
-    fn default_config() -> Result<Self, Error> {
-        let editor = env::var("EDITOR").map_err(|_| Error::EditorNotFound)?;
-        let root = PathBuf::from(DEFAULT_ROOT)
-            .try_resolve()
-            .map_err(|err| Error::IO(err))?
-            .to_path_buf();
+    fn default_config() -> Result<Self> {
+        let editor = env::var("EDITOR")?;
+        let root = PathBuf::from(DEFAULT_ROOT).try_resolve()?.to_path_buf();
 
         Ok(Self {
             editor,

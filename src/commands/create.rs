@@ -1,10 +1,11 @@
 use std::{fs, process::Command};
 
+use anyhow::Result;
 use chrono::prelude::*;
 
-use crate::{args::Args, config::Config, error::Error};
+use crate::{args::Args, config::Config};
 
-pub fn create(args: &Args, config: &Config) -> Result<(), Error> {
+pub fn create(args: &Args, config: &Config) -> Result<()> {
     // Abort early if attempting to create an empty note without editing
     // when force is not also set
     if args.no_edit && !args.force && args.text.is_none() {
@@ -39,12 +40,12 @@ pub fn create(args: &Args, config: &Config) -> Result<(), Error> {
 
     // Ensure all the folders are created
     note_path.push(date.format("%Y/%m").to_string());
-    fs::create_dir_all(&note_path).map_err(|err| Error::IO(err))?;
+    fs::create_dir_all(&note_path)?;
 
     // Now write out the file
     let filename = format!("{}.md", date.format("%Y%m%d_%H%M%S"));
     note_path.push(&filename);
-    fs::write(&note_path, &text).map_err(|err| Error::IO(err))?;
+    fs::write(&note_path, &text)?;
 
     // Editing behavior:
     // - Require an editor to be identified in config (first) or path
@@ -61,10 +62,7 @@ pub fn create(args: &Args, config: &Config) -> Result<(), Error> {
             cmd.arg(format!("+"));
         }
 
-        cmd.spawn()
-            .map_err(|err| Error::IO(err))?
-            .wait()
-            .map_err(|err| Error::IO(err))?;
+        cmd.spawn()?.wait()?;
     }
 
     Ok(())

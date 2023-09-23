@@ -35,6 +35,12 @@ pub enum Subcommand {
     ///
     /// Outputs to stdout unless the -o option is passed
     Html(HtmlCmd),
+
+    /// Render a note at the given path as a PDF file using headless chrome.
+    ///
+    /// Headless chrome must be available on the system for this to work. Requires the output
+    /// option to send to a file.
+    Pdf(PdfCmd),
 }
 
 /// Command to render a note as HTML from the give path.
@@ -45,6 +51,15 @@ pub struct HtmlCmd {
 
     /// Output to a file at the given path, stdout otherwise. The folder must exist, but the file
     /// must not for this to succeed.
-    #[arg(short, long)]
     pub output: Option<PathBuf>,
+}
+
+#[derive(Debug, ClapArgs)]
+pub struct PdfCmd {
+    /// Path to the file to convert. The file must have a .md extension.
+    pub input: PathBuf,
+
+    /// Output the file to the given path. The folder must exist, but the destination file must not
+    /// for this to work.
+    pub output: PathBuf,
 }
