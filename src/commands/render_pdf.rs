@@ -6,21 +6,20 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use headless_chrome::{browser::default_executable, Browser, LaunchOptions};
-use pulldown_cmark::{html, Parser};
 
-use crate::args::PdfCmd;
+use crate::{args::PdfCmd, html::HtmlWriter};
 
 /// Converts Markdown from the input argument to a PDF and outputs to the output file provided
 /// using the output argument. To avoid doubt, this will only process files with a`.md` extension.
 /// The destination directory must exist.
-pub fn pdf(args: &PdfCmd) -> Result<()> {
+pub fn render_pdf(args: &PdfCmd) -> Result<()> {
     let input = canonicalize_input_file(&args.input)?;
     let output = cannonicalize_output_file(&args.output)?;
 
     // Open the tmp and output files before anything else to avoid uneccessary processing if any of
     // the files are invalid
     let tmp_file_name = "/tmp/test.html";
-    let mut tmp_file = OpenOptions::new()
+    let tmp_file = OpenOptions::new()
         .create_new(true)
         .write(true)
         .open(tmp_file_name)?;
@@ -33,9 +32,7 @@ pub fn pdf(args: &PdfCmd) -> Result<()> {
     // We always use an intermediate file as there seems to be no easy way to stream a response
     // directly to Chrome
     let md = fs::read_to_string(input)?;
-    let mut html = String::new();
-    html::push_html(&mut html, Parser::new(&md));
-    tmp_file.write_all(html.as_bytes())?;
+    HtmlWriter::new(tmp_file).write(&md)?;
 
     // Don't immediately return so that we can remove the tmp file whether the conversion succeeded
     // or not

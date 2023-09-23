@@ -1,7 +1,7 @@
 mod create;
-mod html;
-mod pdf;
+mod render_html;
+mod render_pdf;
 
 pub use create::*;
-pub use html::*;
-pub use pdf::*;
+pub use render_html::*;
+pub use render_pdf::*;

@@ -1,14 +1,16 @@
-use std::{fs, io};
+use std::{
+    fs::{self, OpenOptions},
+    io,
+};
 
 use anyhow::{bail, Result};
-use pulldown_cmark::{html, Parser};
 
-use crate::args::HtmlCmd;
+use crate::{args::HtmlCmd, html::HtmlWriter};
 
 /// Converts Markdown from the input argument to HTML and outputs on stdout by default, or to the
 /// file provided using the output argument. To avoid doubt, this will only process files with a
 /// `.md` extension. The destination directory must exist.
-pub fn html(args: &HtmlCmd) -> Result<()> {
+pub fn render_html(args: &HtmlCmd) -> Result<()> {
     // Find the file to render
     let input = args.input.canonicalize()?;
     match input.extension() {
@@ -19,7 +21,7 @@ pub fn html(args: &HtmlCmd) -> Result<()> {
     // Dyanmically dispatch on the type of writer
     let output_writer: Box<dyn io::Write> = match &args.output {
         Some(output) => Box::new(
-            fs::OpenOptions::new()
+            OpenOptions::new()
                 .create_new(true)
                 .write(true)
                 .open(output)?,
@@ -28,10 +30,5 @@ pub fn html(args: &HtmlCmd) -> Result<()> {
     };
 
     let md = fs::read_to_string(input)?;
-    let parser = Parser::new(&md);
-    let writer = io::BufWriter::new(output_writer);
-
-    html::write_html(writer, parser)?;
-
-    Ok(())
+    Ok(HtmlWriter::new(output_writer).write(&md)?)
 }

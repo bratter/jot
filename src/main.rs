@@ -1,6 +1,7 @@
 mod args;
 mod commands;
 mod config;
+mod html;
 
 use anyhow::Result;
 use clap::Parser;
@@ -21,8 +22,8 @@ fn main() -> Result<()> {
 
     // Route based on the command
     match args.subcommand {
-        Some(Subcommand::Html(args)) => commands::html(&args),
-        Some(Subcommand::Pdf(args)) => commands::pdf(&args),
+        Some(Subcommand::Html(args)) => commands::render_html(&args),
+        Some(Subcommand::Pdf(args)) => commands::render_pdf(&args),
         None => commands::create(&args, &config),
     }
 }
