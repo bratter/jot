@@ -1,3 +1,10 @@
+//! Jot: A simple aid to help live the plain text life
+//!
+//! Provides a minimalist CLI interface to managed Markdown formatted notes. Inspired by:
+//!
+//! - [Noted](https://github.com/scottashipp/noted)
+//! - [Note-Taking in Vanilla Vim](https://www.edwinwenink.xyz/posts/42-vim_notetaking/)
+
 mod args;
 mod commands;
 mod config;
@@ -9,13 +16,6 @@ use clap::Parser;
 use crate::args::{Args, Subcommand};
 use crate::config::Config;
 
-// TODO: Add more anyhow contexts for better error messages
-// TODO: Consider supporting custom template strings for front matter that will need replace (regex)
-//       or a dynamic template engine (strfmt) to work
-// TODO: Get Serde out of the compilation. Is there some feature in chrono/toml that needs to be
-//       disabled?
-// TODO: Support resolution of env vars in appropriate config items
-// TODO: In the config can we make args 'static, so we don't have to allocate strings?
 fn main() -> Result<()> {
     let args = Args::parse();
     let config = Config::try_new(&args)?;

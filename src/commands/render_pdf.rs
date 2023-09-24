@@ -6,9 +6,12 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use headless_chrome::{browser::default_executable, Browser, LaunchOptions};
+use tempfile::Builder;
 
 use crate::{args::PdfCmd, html::HtmlWriter};
 
+/// Command called to render a PDF.
+///
 /// Converts Markdown from the input argument to a PDF and outputs to the output file provided
 /// using the output argument. To avoid doubt, this will only process files with a`.md` extension.
 /// The destination directory must exist.
@@ -16,13 +19,10 @@ pub fn render_pdf(args: &PdfCmd) -> Result<()> {
     let input = canonicalize_input_file(&args.input)?;
     let output = cannonicalize_output_file(&args.output)?;
 
-    // Open the tmp and output files before anything else to avoid uneccessary processing if any of
-    // the files are invalid
-    let tmp_file_name = "/tmp/test.html";
-    let tmp_file = OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(tmp_file_name)?;
+    let tmp_file = Builder::new()
+        .prefix("jot_tmp_")
+        .suffix(".html")
+        .tempfile()?;
     let mut output_file = OpenOptions::new()
         .create_new(true)
         .write(true)
@@ -32,23 +32,27 @@ pub fn render_pdf(args: &PdfCmd) -> Result<()> {
     // We always use an intermediate file as there seems to be no easy way to stream a response
     // directly to Chrome
     let md = fs::read_to_string(input)?;
-    HtmlWriter::new(tmp_file).write(&md)?;
+    HtmlWriter::new(&tmp_file).write_html(&md)?;
 
     // Don't immediately return so that we can remove the tmp file whether the conversion succeeded
     // or not
     println!("Starting to convert pdf");
-    let conversion_result = convert_pdf(&mut output_file, tmp_file_name);
-    println!("PDF conversion complete, output file at {:?}", output);
+    // We can immediately return the result as it appears that random temp will delete the file
+    convert_pdf(&mut output_file, &tmp_file.path().to_string_lossy())?;
+    println!(
+        "PDF conversion complete, output file at {}",
+        output.to_string_lossy()
+    );
 
-    fs::remove_file(tmp_file_name)?;
-    conversion_result
+    Ok(())
 }
 
+/// Take the input file name and canonicalize, noting that this will check for existence.
 fn canonicalize_input_file(original_input: &PathBuf) -> Result<PathBuf> {
     let input = original_input.canonicalize().with_context(|| {
         format!(
-            "Invalid input path, unable to canonicalize {:?}",
-            &original_input
+            "Invalid input path, unable to canonicalize {}",
+            &original_input.to_string_lossy()
         )
     })?;
 
@@ -61,11 +65,12 @@ fn canonicalize_input_file(original_input: &PathBuf) -> Result<PathBuf> {
     Ok(input)
 }
 
+/// Take the output file name provided, check its validity, and canonicalize.
 fn cannonicalize_output_file(original_output: &PathBuf) -> Result<PathBuf> {
     let output = original_output.parent().ok_or_else(|| {
         anyhow!(
-            "Invalid output path {:?}, must end in a filename",
-            original_output
+            "Invalid output path {}, must end in a filename",
+            original_output.to_string_lossy()
         )
     })?;
 
@@ -75,18 +80,18 @@ fn cannonicalize_output_file(original_output: &PathBuf) -> Result<PathBuf> {
         output.canonicalize()
     }
     .context(format!(
-        "Invalid output path, unable to canonicalize directory in {:?}",
-        output
+        "Invalid output path, unable to canonicalize directory in {}",
+        output.to_string_lossy()
     ))?;
 
-    let canonical_output = original_output.file_name().ok_or_else(|| {
+    let canonical_file = original_output.file_name().ok_or_else(|| {
         anyhow!(
-            "Invalid output path, unable to located file name in {:?}",
-            original_output
+            "Invalid output path, unable to located file name in {}",
+            original_output.to_string_lossy()
         )
     })?;
 
-    Ok(output.join(canonical_output))
+    Ok(output.join(canonical_file))
 }
 
 /// Convert the HTML file at file_name to a pdf and save into the output file handle.

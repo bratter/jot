@@ -9,6 +9,7 @@ const CONFIG_FILE: &str = "jot/conf.toml";
 const DEFAULT_ROOT: &str = "~/notes";
 const DEFAULT_SUBDIR: &str = "atoms";
 
+/// Configuration reader.
 pub struct Config {
     /// The editor to use. Requires an editor string even if the no-edit flag is passed.
     pub editor: String,

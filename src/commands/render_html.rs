@@ -7,6 +7,8 @@ use anyhow::{bail, Result};
 
 use crate::{args::HtmlCmd, html::HtmlWriter};
 
+/// Command called to render HTML.
+///
 /// Converts Markdown from the input argument to HTML and outputs on stdout by default, or to the
 /// file provided using the output argument. To avoid doubt, this will only process files with a
 /// `.md` extension. The destination directory must exist.
@@ -30,5 +32,5 @@ pub fn render_html(args: &HtmlCmd) -> Result<()> {
     };
 
     let md = fs::read_to_string(input)?;
-    Ok(HtmlWriter::new(output_writer).write(&md)?)
+    Ok(HtmlWriter::new(output_writer).write_html(&md)?)
 }

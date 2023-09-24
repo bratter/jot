@@ -18,33 +18,30 @@ where
         Self { writer }
     }
 
-    /// Write out the entire contents as HTML, wrapping the Markdown with a full HTML document
-    /// including head and body tags.
-    pub fn write(&mut self, md: &str) -> Result<()> {
+    /// Write out the entire HTML document with article content given by the Markdown content in
+    /// the provided string.
+    ///
+    /// Writes out the entire document including outer `<html>`, `<head>`, and `<body>` tags.
+    pub fn write_html(&mut self, md: &str) -> Result<()> {
         writeln!(self.writer, "<!DOCTYPE html>\n<html>")?;
-        self.head()?;
+        self.write_head()?;
         writeln!(self.writer, "<body>")?;
-        self.markdown(md)?;
+        self.write_markdown(md)?;
         Ok(writeln!(self.writer, "</body>\n</html>")?)
     }
 
-    pub fn head(&mut self) -> Result<()> {
+    /// Write only the head component of the HTML document.
+    pub fn write_head(&mut self) -> Result<()> {
         Ok(writeln!(
             self.writer,
             "<head>\n<meta charset=\"utf-8\" />\n<title>Jot Note</title>\n</head>"
         )?)
     }
 
-    // TODO: This is incredibly inefficient writing the md to a string and then into a writer.
-    // Need to create own version of pulldown_cmark's html module (which can then also be used to
-    // tweak some rendering, then adapt the writer logic to be able to do this properly.
-    // TODO: Strip out front matter and render separately
-    // TODO: Add css, likely from a default config file, or a path that is passed in the command
-    // TODO: Probably wait for this until can make a separate render crate to work across jot and
-    // notes-html
-    // TODO: Is there some way to pull the title from the initial H1 if its not in the front
-    // matter? Is this beneficial to put in the title anyway?
-    pub fn markdown(&mut self, md: &str) -> Result<()> {
+    /// Write the rendered markdown component of the document.
+    ///
+    /// Does not wrap in anything, only produces the raw result of rendering the Markdown string.
+    pub fn write_markdown(&mut self, md: &str) -> Result<()> {
         let mut html_str = String::new();
         html::push_html(&mut html_str, Parser::new(&md));
 
