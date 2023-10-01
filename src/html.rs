@@ -4,7 +4,7 @@
 use std::io::Write;
 
 use anyhow::Result;
-use pulldown_cmark::{html, Parser};
+use markdown::Markdown;
 
 pub struct HtmlWriter<W> {
     writer: W,
@@ -42,10 +42,8 @@ where
     ///
     /// Does not wrap in anything, only produces the raw result of rendering the Markdown string.
     pub fn write_markdown(&mut self, md: &str) -> Result<()> {
-        let mut html_str = String::new();
-        html::push_html(&mut html_str, Parser::new(&md));
-
-        self.writer.write(&html_str.as_bytes())?;
-        Ok(())
+        let md = Markdown::new(md);
+        md.write_frontmatter_html(&mut self.writer)?;
+        md.write_html(&mut self.writer)
     }
 }
