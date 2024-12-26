@@ -8,6 +8,7 @@ use crate::args::Args;
 const CONFIG_FILE: &str = "jot/conf.toml";
 const DEFAULT_ROOT: &str = "~/notes";
 const DEFAULT_SUBDIR: &str = "atoms";
+const FALLBACK_EDITOR: &str = "vim";
 
 /// Configuration reader.
 pub struct Config {
@@ -42,11 +43,11 @@ impl Config {
 
         // First, attempt to find the editor in the config
         // If it's not present, grab the EDITOR env var
-        // Return an error if not available
+        // If not available, assume we have vim
         let editor = match toml.get("editor") {
             Some(toml::Value::String(s)) => s.clone(),
             Some(_) => bail!("Could not parse TOML"),
-            None => env::var("EDITOR")?,
+            None => Self::fallback_editor(),
         };
 
         let jump = match toml.get("jump") {
@@ -96,7 +97,7 @@ impl Config {
 
     /// Default config. Not implementing Default as this should not be called outside this module.
     fn default_config() -> Result<Self> {
-        let editor = env::var("EDITOR")?;
+        let editor = Self::fallback_editor();
         let root = PathBuf::from(DEFAULT_ROOT).try_resolve()?.to_path_buf();
 
         Ok(Self {
@@ -105,5 +106,9 @@ impl Config {
             root,
             subdir: DEFAULT_SUBDIR.to_string(),
         })
+    }
+
+    fn fallback_editor() -> String {
+        env::var("EDITOR").unwrap_or(String::from(FALLBACK_EDITOR))
     }
 }

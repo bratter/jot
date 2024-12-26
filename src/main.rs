@@ -9,6 +9,7 @@ mod args;
 mod commands;
 mod config;
 mod html;
+mod path;
 
 use anyhow::Result;
 use clap::Parser;

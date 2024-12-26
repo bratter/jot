@@ -1,6 +1,6 @@
 use std::{
-    fs::{self, File, OpenOptions},
-    io::Write,
+    fs::{self, OpenOptions},
+    io::{self, Write},
     path::PathBuf,
 };
 
@@ -8,41 +8,68 @@ use anyhow::{anyhow, bail, Context, Result};
 use headless_chrome::{browser::default_executable, Browser, LaunchOptions};
 use tempfile::Builder;
 
-use crate::{args::PdfCmd, html::HtmlWriter};
+use crate::{
+    args::PdfCmd,
+    html::HtmlWriter,
+    path::{generate_output_path, read_md_from_stdin},
+};
 
 /// Command called to render a PDF.
 ///
 /// Converts Markdown from the input argument to a PDF and outputs to the output file provided
 /// using the output argument. To avoid doubt, this will only process files with a`.md` extension.
 /// The destination directory must exist.
+///
+/// PERF: Get rid of all the PathBuf cloning
 pub fn render_pdf(args: &PdfCmd) -> Result<()> {
-    let input = canonicalize_input_file(&args.input)?;
-    let output = cannonicalize_output_file(&args.output)?;
+    // Find the file to render
+    let input = args
+        .input
+        .clone()
+        .map(|input| canonicalize_input_file(&input))
+        .transpose()?;
+
+    // If the output option is provided, turn it into a file writer
+    // Keep inside an option to replace with stdout otherwise
+    // We do this before generating the HTML in case of errors
+    let output_path = args
+        .output
+        .clone()
+        // The default here captures the case when no output file is provided and therefore will error in generate
+        // output path if a valid input is required
+        .map(|output| generate_output_path("pdf", output, &input.clone().unwrap_or_default()))
+        .transpose()?;
 
     let tmp_file = Builder::new()
         .prefix("jot_tmp_")
         .suffix(".html")
         .tempfile()?;
-    let mut output_file = OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open(&output)?;
 
     // Build the HTML first to avoid spinning up the browser if this step fails
     // We always use an intermediate file as there seems to be no easy way to stream a response
     // directly to Chrome
-    let md = fs::read_to_string(input)?;
+    let md = match &input {
+        Some(input) => fs::read_to_string(input)?,
+        None => read_md_from_stdin()?,
+    };
     HtmlWriter::new(&tmp_file).write_html(&md)?;
 
-    // Don't immediately return so that we can remove the tmp file whether the conversion succeeded
-    // or not
-    println!("Starting to convert pdf");
     // We can immediately return the result as it appears that random temp will delete the file
-    convert_pdf(&mut output_file, &tmp_file.path().to_string_lossy())?;
-    println!(
-        "PDF conversion complete, output file at {}",
-        output.to_string_lossy()
-    );
+    match output_path {
+        Some(path) => {
+            let mut output_file_writer = OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&path)?;
+            println!("Starting to convert pdf");
+            convert_pdf(&mut output_file_writer, &tmp_file.path().to_string_lossy())?;
+            println!(
+                "PDF conversion complete, output file at {}",
+                path.to_string_lossy()
+            );
+        }
+        None => convert_pdf(&mut io::stdout(), &tmp_file.path().to_string_lossy())?,
+    }
 
     Ok(())
 }
@@ -65,37 +92,9 @@ fn canonicalize_input_file(original_input: &PathBuf) -> Result<PathBuf> {
     Ok(input)
 }
 
-/// Take the output file name provided, check its validity, and canonicalize.
-fn cannonicalize_output_file(original_output: &PathBuf) -> Result<PathBuf> {
-    let output = original_output.parent().ok_or_else(|| {
-        anyhow!(
-            "Invalid output path {}, must end in a filename",
-            original_output.to_string_lossy()
-        )
-    })?;
-
-    let output = if output.as_os_str().is_empty() {
-        output.join(".").canonicalize()
-    } else {
-        output.canonicalize()
-    }
-    .context(format!(
-        "Invalid output path, unable to canonicalize directory in {}",
-        output.to_string_lossy()
-    ))?;
-
-    let canonical_file = original_output.file_name().ok_or_else(|| {
-        anyhow!(
-            "Invalid output path, unable to located file name in {}",
-            original_output.to_string_lossy()
-        )
-    })?;
-
-    Ok(output.join(canonical_file))
-}
-
 /// Convert the HTML file at file_name to a pdf and save into the output file handle.
-fn convert_pdf(output: &mut File, file_name: &str) -> Result<()> {
+/// TODO: Conditionally compile the call to print_to_pdf out in test mode
+fn convert_pdf<T: Write>(output: &mut T, file_name: &str) -> Result<()> {
     let browser = get_browser()?;
     let tab = browser.new_tab()?;
 

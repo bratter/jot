@@ -47,19 +47,49 @@ pub enum Subcommand {
 #[derive(Debug, ClapArgs)]
 pub struct HtmlCmd {
     /// Path to the file to convert. The file must have a .md extension.
-    pub input: PathBuf,
+    ///
+    /// If not provided will take input from stdin.
+    #[arg(short, long)]
+    pub input: Option<PathBuf>,
 
-    /// Output to a file at the given path, stdout otherwise. The folder must exist, but the file
-    /// must not for this to succeed.
-    pub output: Option<PathBuf>,
+    /// Output to a file at the given path.
+    ///
+    /// If not provided, will output to stdout.
+    ///
+    /// The location of the output file depends on the value provided:
+    /// - If the flag is provided without text, the resulting file will be saved with a .pdf extension and the same file
+    ///   stem next to the original.
+    /// - Other directories are saved in the directory if it exists (none are created) with the same filename. A dot
+    ///   will therefore save in the pwd.
+    /// - A full filename will save to the file, but will not create any directories or overwrite existing files.
+    #[arg(short, long)]
+    pub output: Option<Option<PathBuf>>,
+
+    /// Output only the raw markdown without wrapping HTML.
+    ///
+    /// This is useful for producing snippets.
+    #[arg(short, long)]
+    pub raw: bool,
 }
 
 #[derive(Debug, ClapArgs)]
 pub struct PdfCmd {
     /// Path to the file to convert. The file must have a .md extension.
-    pub input: PathBuf,
+    ///
+    /// If not provided will take input from stdin.
+    #[arg(short, long)]
+    pub input: Option<PathBuf>,
 
-    /// Output the file to the given path. The folder must exist, but the destination file must not
-    /// for this to work.
-    pub output: PathBuf,
+    /// Output the file to the given path.
+    ///
+    /// If not provided, will output to stdout. This should only be used to redirect to a file.
+    ///
+    ///  The location of the output file depends on the value provided:
+    ///  - If the flag is provided without any text then the resulting file is saved with a .pdf extension next to the
+    ///    source file.
+    ///  - Other directories are saved in the directory if it exists (none are created) with the same filename. A dot
+    ///    will therefore save in the pwd.
+    ///  - A full filename will save to the file, but will not create any directories or overwrite existing files.
+    #[arg(short, long)]
+    pub output: Option<Option<PathBuf>>,
 }
