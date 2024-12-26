@@ -1,6 +1,6 @@
 [package]
 name = "jot"
-version = "0.2.2"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -8,10 +8,10 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.75"
 chrono = "0.4.23"
-clap = { version = "4.1.4", features = ["derive", "wrap_help"] }
-dirs = "4.0.0"
+clap = { version = "4.5.0", features = ["derive", "wrap_help"] }
+dirs = "5.0.0"
 headless_chrome = "1.0.15"
 markdown = { path = "../brnet/notes/markdown", features = ["yaml"] }
 resolve-path = "0.1.0"
-tempfile = "3.8.0"
-toml = "0.7.2"
+tempfile = "3.14.0"
+toml = "0.8.0"
