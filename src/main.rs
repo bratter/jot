@@ -23,8 +23,8 @@ fn main() -> Result<()> {
 
     // Route based on the command
     match args.subcommand {
-        Some(Subcommand::Html(args)) => commands::render_html(&args),
-        Some(Subcommand::Pdf(args)) => commands::render_pdf(&args),
+        Some(Subcommand::Html(args)) => commands::render_html(&args, &config),
+        Some(Subcommand::Pdf(args)) => commands::render_pdf(&args, &config),
         None => commands::create(&args, &config),
     }
 }

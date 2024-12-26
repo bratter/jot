@@ -6,6 +6,7 @@ use resolve_path::PathResolveExt;
 use crate::args::Args;
 
 const CONFIG_FILE: &str = "jot/conf.toml";
+const CSS_FILE: &str = "jot.css";
 const DEFAULT_ROOT: &str = "~/notes";
 const DEFAULT_SUBDIR: &str = "atoms";
 const FALLBACK_EDITOR: &str = "vim";
@@ -24,6 +25,9 @@ pub struct Config {
 
     /// The location inside the root to store notes
     subdir: String,
+
+    /// The path to the css file to inject into the header when rendering HTML
+    pub css: Option<PathBuf>,
 }
 
 impl Config {
@@ -39,7 +43,8 @@ impl Config {
 
     /// Attempt to build a Config from the provided path.
     pub fn try_from_path(path: &PathBuf, subdir: &Option<String>) -> Result<Self> {
-        let toml = fs::read_to_string(path.resolve())?.parse::<toml::Table>()?;
+        let config_file = path.try_resolve()?;
+        let toml = fs::read_to_string(&config_file)?.parse::<toml::Table>()?;
 
         // First, attempt to find the editor in the config
         // If it's not present, grab the EDITOR env var
@@ -63,11 +68,20 @@ impl Config {
         };
         let root = root.try_resolve()?.to_path_buf();
 
+        // First attempt to find a css file in the root of the notes directory
+        // if that doesn't exist, try to find a global config
+        let css = root.join(CSS_FILE).canonicalize().ok().or_else(|| {
+            config_file
+                .parent()
+                .and_then(|p| p.join(CSS_FILE).canonicalize().ok())
+        });
+
         Ok(Self {
             editor,
             jump,
             root,
             subdir: subdir.clone().unwrap_or(DEFAULT_SUBDIR.to_string()),
+            css,
         })
     }
 
@@ -105,6 +119,7 @@ impl Config {
             jump: true,
             root,
             subdir: DEFAULT_SUBDIR.to_string(),
+            css: None,
         })
     }
 

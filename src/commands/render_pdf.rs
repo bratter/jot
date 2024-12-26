@@ -10,6 +10,7 @@ use tempfile::Builder;
 
 use crate::{
     args::PdfCmd,
+    config::Config,
     html::HtmlWriter,
     path::{generate_output_path, read_md_from_stdin},
 };
@@ -21,7 +22,7 @@ use crate::{
 /// The destination directory must exist.
 ///
 /// PERF: Get rid of all the PathBuf cloning
-pub fn render_pdf(args: &PdfCmd) -> Result<()> {
+pub fn render_pdf(args: &PdfCmd, config: &Config) -> Result<()> {
     // Find the file to render
     let input = args
         .input
@@ -52,7 +53,7 @@ pub fn render_pdf(args: &PdfCmd) -> Result<()> {
         Some(input) => fs::read_to_string(input)?,
         None => read_md_from_stdin()?,
     };
-    HtmlWriter::new(&tmp_file).write_html(&md)?;
+    HtmlWriter::new(&tmp_file, config.css.clone()).write_html(&md)?;
 
     // We can immediately return the result as it appears that random temp will delete the file
     match output_path {

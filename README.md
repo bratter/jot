@@ -50,7 +50,7 @@ The following fixes/features are on the agenda
   - Pull title in from `<h1>` if it's not in the front matter
   - Pull modified date from file stamp if not in front matter
 - [ ] Flag for opening when HTML/PDF are made
-- [ ] Add ability to pull CSS for rendering from both default file in config and cli argument
+- [ ] Add ability to pull CSS for rendering from both default file in config and cli argument (currently pulls from root dir then config dir, but not ability to configure)
 - [ ] Programmatically modify config, and improve relationship with env var overwriting
 - [x] Make EDITOR env var not required to build the config
 - [ ] Improve UX for managing the `notes` folder overall, not just the `atoms` subfolder
